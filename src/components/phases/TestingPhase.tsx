@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import { useSDLCStore, TestCase } from '@/store/sdlcStore';
+import React, { useState, useEffect } from 'react';
+import { useProjectStore, TestCase } from '@/store/projectStore';
+import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 import { 
   TestTube, 
   Plus,
@@ -18,9 +20,10 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const MOCK_TEST_CASES: TestCase[] = [
+const createMockTestCases = (projectId: string): TestCase[] => [
   {
     id: '1',
+    projectId,
     title: 'User can successfully login with valid credentials',
     type: 'functional',
     description: 'Verify that users can access the system with correct email and password',
@@ -30,6 +33,7 @@ const MOCK_TEST_CASES: TestCase[] = [
   },
   {
     id: '2',
+    projectId,
     title: 'Login fails with invalid password',
     type: 'functional',
     description: 'Verify that authentication fails with incorrect password',
@@ -39,6 +43,7 @@ const MOCK_TEST_CASES: TestCase[] = [
   },
   {
     id: '3',
+    projectId,
     title: 'Dashboard loads within 2 seconds',
     type: 'integration',
     description: 'Performance test for dashboard initial load time',
@@ -48,6 +53,7 @@ const MOCK_TEST_CASES: TestCase[] = [
   },
   {
     id: '4',
+    projectId,
     title: 'API handles concurrent requests',
     type: 'integration',
     description: 'Load test for API endpoint under concurrent usage',
@@ -58,9 +64,55 @@ const MOCK_TEST_CASES: TestCase[] = [
 ];
 
 export const TestingPhase: React.FC = () => {
-  const { project, addTestCase, updatePhaseProgress, setActivePhase } = useSDLCStore();
-  const [testCases, setTestCases] = useState<TestCase[]>(MOCK_TEST_CASES);
+  const { project, testCases, setTestCases, addTestCase, updateTestCase, updatePhaseProgress, setActivePhase } = useProjectStore();
+  const { toast } = useToast();
   const [isRunning, setIsRunning] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Load test cases on mount
+  useEffect(() => {
+    if (project?.id) {
+      loadTestCases();
+    }
+  }, [project?.id]);
+
+  const loadTestCases = async () => {
+    if (!project?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('test_cases')
+        .select('*')
+        .eq('project_id', project.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setTestCases(data.map(t => ({
+          id: t.id,
+          projectId: t.project_id,
+          type: t.type as any,
+          title: t.title,
+          description: t.description,
+          steps: t.steps,
+          expectedResult: t.expected_result,
+          status: t.status as any,
+        })));
+      } else {
+        // Use mock data if no test cases exist
+        setTestCases(createMockTestCases(project.id));
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error loading test cases',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const passedCount = testCases.filter(t => t.status === 'passed').length;
   const failedCount = testCases.filter(t => t.status === 'failed').length;
@@ -72,12 +124,13 @@ export const TestingPhase: React.FC = () => {
     // Simulate test execution
     await new Promise(resolve => setTimeout(resolve, 2000));
     
-    setTestCases(prev => prev.map(t => ({
+    const updatedTestCases = testCases.map(t => ({
       ...t,
-      status: t.status === 'pending' ? (Math.random() > 0.3 ? 'passed' : 'failed') : t.status
-    })));
+      status: t.status === 'pending' ? (Math.random() > 0.3 ? 'passed' : 'failed') as 'pending' | 'passed' | 'failed' : t.status
+    }));
+    setTestCases(updatedTestCases);
     
-    updatePhaseProgress('testing', 75);
+    await updatePhaseProgress('testing', 75);
     setIsRunning(false);
   };
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useSDLCStore } from '@/store/sdlcStore';
+import { useProjectStore } from '@/store/projectStore';
 import { cn } from '@/lib/utils';
 import { 
   Rocket, 
@@ -86,7 +86,7 @@ CMD ["nginx", "-g", "daemon off;"]
 `.trim();
 
 export const DeploymentPhase: React.FC = () => {
-  const { project, updatePhaseProgress } = useSDLCStore();
+  const { project, updatePhaseProgress } = useProjectStore();
   const [selectedPlatform, setSelectedPlatform] = React.useState('vercel');
 
   const copyCode = (code: string, name: string) => {

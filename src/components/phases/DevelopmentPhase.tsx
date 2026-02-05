@@ -1,7 +1,7 @@
 import React from 'react';
-import { useSDLCStore } from '@/store/sdlcStore';
+import { useProjectStore } from '@/store/projectStore';
 import { cn } from '@/lib/utils';
-import { 
+import {
   Code, 
   Sparkles,
   FileCode,
@@ -101,7 +101,7 @@ export const projectService = {
 `.trim();
 
 export const DevelopmentPhase: React.FC = () => {
-  const { project, updatePhaseProgress, setActivePhase } = useSDLCStore();
+  const { project, updatePhaseProgress, setActivePhase } = useProjectStore();
 
   const copyCode = (code: string) => {
     navigator.clipboard.writeText(code);

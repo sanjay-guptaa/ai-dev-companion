@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useSDLCStore, Project, Message } from '@/store/sdlcStore';
+import React, { useState, useEffect } from 'react';
+import { useProjectStore } from '@/store/projectStore';
 import { cn } from '@/lib/utils';
 import { 
   Lightbulb, 
@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 
 const INITIAL_QUESTIONS = [
   "What's the primary goal or problem this project solves?",
@@ -23,63 +24,47 @@ const INITIAL_QUESTIONS = [
 ];
 
 export const ProjectIdeaForm: React.FC = () => {
-  const { setProject, updateProject, setActivePhase, updatePhaseProgress, project, addMessage } = useSDLCStore();
+  const { project, updateProject, setActivePhase, updatePhaseProgress } = useProjectStore();
+  const { toast } = useToast();
   
   const [step, setStep] = useState<'input' | 'clarify' | 'generating'>('input');
-  const [projectIdea, setProjectIdea] = useState('');
-  const [projectName, setProjectName] = useState('');
+  const [projectName, setProjectName] = useState(project?.name || '');
+  const [projectIdea, setProjectIdea] = useState(project?.description || '');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<string[]>([]);
   const [currentAnswer, setCurrentAnswer] = useState('');
 
-  const handleStartProject = () => {
+  // Initialize with existing project data
+  useEffect(() => {
+    if (project) {
+      setProjectName(project.name);
+      setProjectIdea(project.description);
+      
+      // If project has vision, we've already completed this phase
+      if (project.vision) {
+        // Show the clarify step completed or skip to next
+      }
+    }
+  }, [project]);
+
+  const handleStartClarify = async () => {
     if (!projectIdea.trim()) return;
 
-    // Create a new project
-    const newProject: Project = {
-      id: crypto.randomUUID(),
-      name: projectName || 'New Project',
-      description: projectIdea,
-      vision: '',
-      scope: '',
-      targetUsers: [],
-      features: [],
-      constraints: [],
-      currentPhase: 'idea',
-      phaseProgress: {
-        idea: 20,
-        requirements: 0,
-        design: 0,
-        development: 0,
-        testing: 0,
-        documentation: 0,
-        deployment: 0,
-      },
-      requirements: [],
-      useCases: [],
-      designArtifacts: [],
-      testCases: [],
-      documents: [],
-      chatHistory: [
-        {
-          id: crypto.randomUUID(),
-          role: 'user',
-          content: `Project Idea: ${projectIdea}`,
-          timestamp: new Date(),
-        },
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: `Great project idea! Let me ask a few clarifying questions to better understand your vision.`,
-          timestamp: new Date(),
-        }
-      ],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    setProject(newProject);
-    setStep('clarify');
+    try {
+      await updateProject({
+        name: projectName || project?.name,
+        description: projectIdea,
+      });
+      
+      await updatePhaseProgress('idea', 20);
+      setStep('clarify');
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleAnswerQuestion = () => {
@@ -88,56 +73,42 @@ export const ProjectIdeaForm: React.FC = () => {
     const newAnswers = [...answers, currentAnswer];
     setAnswers(newAnswers);
 
-    // Add to chat history
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: currentAnswer,
-      timestamp: new Date(),
-    };
-    addMessage(userMessage);
-
     if (currentQuestionIndex < INITIAL_QUESTIONS.length - 1) {
-      const assistantMessage: Message = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: INITIAL_QUESTIONS[currentQuestionIndex + 1],
-        timestamp: new Date(),
-      };
-      addMessage(assistantMessage);
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setCurrentAnswer('');
     } else {
-      // All questions answered, generate summary
       setStep('generating');
       generateProjectSummary(newAnswers);
     }
   };
 
   const generateProjectSummary = async (allAnswers: string[]) => {
-    // Simulate AI processing
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      // Update project with gathered information
+      await updateProject({
+        vision: allAnswers[0] || '',
+        targetUsers: allAnswers[1]?.split(',').map(s => s.trim()) || [],
+        features: allAnswers[2]?.split(',').map(s => s.trim()) || [],
+        constraints: allAnswers[3]?.split(',').map(s => s.trim()) || [],
+        currentPhase: 'requirements',
+      });
 
-    // Update project with gathered information
-    updateProject({
-      vision: allAnswers[0] || '',
-      targetUsers: allAnswers[1]?.split(',').map(s => s.trim()) || [],
-      features: allAnswers[2]?.split(',').map(s => s.trim()) || [],
-      constraints: allAnswers[3]?.split(',').map(s => s.trim()) || [],
-    });
+      await updatePhaseProgress('idea', 100);
+      
+      toast({
+        title: 'Project setup complete',
+        description: 'Moving to Requirements phase',
+      });
 
-    updatePhaseProgress('idea', 100);
-    
-    // Add completion message
-    const completionMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      content: `Excellent! I've captured your project vision. Your project "${project?.name}" is now set up. Let's move to the Requirements phase to define detailed specifications.`,
-      timestamp: new Date(),
-    };
-    addMessage(completionMessage);
-
-    setActivePhase('requirements');
+      setActivePhase('requirements');
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+      setStep('clarify');
+    }
   };
 
   if (step === 'input') {
@@ -200,13 +171,13 @@ export const ProjectIdeaForm: React.FC = () => {
             </div>
 
             <Button
-              onClick={handleStartProject}
+              onClick={handleStartClarify}
               disabled={!projectIdea.trim()}
               className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90 glow-primary"
               size="lg"
             >
               <Sparkles className="w-4 h-4 mr-2" />
-              Analyze & Start Project
+              Analyze & Continue
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
@@ -241,7 +212,7 @@ export const ProjectIdeaForm: React.FC = () => {
           </p>
         </div>
 
-        {/* Chat-like Q&A */}
+        {/* Answered Questions */}
         <div className="space-y-4 mb-6">
           {answers.map((answer, idx) => (
             <React.Fragment key={idx}>
@@ -297,7 +268,7 @@ export const ProjectIdeaForm: React.FC = () => {
         </div>
         <h2 className="text-2xl font-bold mb-2">Analyzing Your Project</h2>
         <p className="text-muted-foreground mb-6">
-          Our AI is processing your responses and creating a project foundation...
+          Processing your responses and setting up the project foundation...
         </p>
         <div className="flex justify-center gap-1">
           {[0, 1, 2].map((i) => (

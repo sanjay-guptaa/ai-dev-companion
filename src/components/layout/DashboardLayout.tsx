@@ -1,5 +1,5 @@
 import React from 'react';
-import { useSDLCStore } from '@/store/sdlcStore';
+import { useProjectStore } from '@/store/projectStore';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { cn } from '@/lib/utils';
@@ -9,7 +9,7 @@ interface DashboardLayoutProps {
 }
 
 export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
-  const { sidebarOpen } = useSDLCStore();
+  const { sidebarOpen } = useProjectStore();
 
   return (
     <div className="min-h-screen bg-background">
