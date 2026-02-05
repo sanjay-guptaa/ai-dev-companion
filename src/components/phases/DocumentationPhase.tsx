@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSDLCStore } from '@/store/sdlcStore';
+import { useProjectStore } from '@/store/projectStore';
 import { cn } from '@/lib/utils';
 import { 
   BookOpen, 
@@ -68,7 +68,7 @@ The system will provide comprehensive SDLC management including requirements tra
 `;
 
 export const DocumentationPhase: React.FC = () => {
-  const { project, updatePhaseProgress, setActivePhase } = useSDLCStore();
+  const { project, updatePhaseProgress, setActivePhase } = useProjectStore();
   const [selectedDoc, setSelectedDoc] = useState('srs');
   const [isGenerating, setIsGenerating] = useState(false);
 

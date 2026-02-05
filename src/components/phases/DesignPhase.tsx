@@ -1,10 +1,9 @@
-import React, { useState } from 'react';
-import { useSDLCStore, DesignArtifact } from '@/store/sdlcStore';
+import React, { useState, useEffect } from 'react';
+import { useProjectStore, DesignArtifact } from '@/store/projectStore';
+import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { 
   Palette, 
-  Plus, 
-  Sparkles,
   Download,
   FileCode,
   GitBranch,
@@ -13,11 +12,16 @@ import {
   Users,
   Workflow,
   Box,
-  ChevronRight
+  ChevronRight,
+  Sparkles,
+  ZoomIn,
+  ZoomOut,
+  Maximize2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
+import mermaid from 'mermaid';
 
 const DIAGRAM_TYPES = [
   { id: 'use-case', label: 'Use Case', icon: Users, description: 'Actor interactions with the system' },
@@ -116,37 +120,132 @@ const MOCK_DIAGRAMS: Record<string, { mermaid: string; explanation: string }> = 
   }
 };
 
+// Initialize mermaid
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'dark',
+  themeVariables: {
+    primaryColor: '#22d3ee',
+    primaryTextColor: '#ffffff',
+    primaryBorderColor: '#0e7490',
+    lineColor: '#64748b',
+    secondaryColor: '#1e293b',
+    tertiaryColor: '#0f172a',
+  },
+});
+
 export const DesignPhase: React.FC = () => {
-  const { project, addDesignArtifact, updatePhaseProgress, setActivePhase } = useSDLCStore();
+  const { project, designArtifacts, setDesignArtifacts, addDesignArtifact, updatePhaseProgress, setActivePhase } = useProjectStore();
+  const { toast } = useToast();
   const [selectedType, setSelectedType] = useState<string>('use-case');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [renderedSvg, setRenderedSvg] = useState<string>('');
+  const [zoom, setZoom] = useState(1);
+
+  // Load design artifacts on mount
+  useEffect(() => {
+    if (project?.id) {
+      loadDesignArtifacts();
+    }
+  }, [project?.id]);
+
+  // Render mermaid diagram when selected artifact changes
+  useEffect(() => {
+    const artifact = designArtifacts.find(a => a.type === selectedType);
+    if (artifact?.mermaidCode) {
+      renderMermaid(artifact.mermaidCode);
+    } else {
+      setRenderedSvg('');
+    }
+  }, [selectedType, designArtifacts]);
+
+  const loadDesignArtifacts = async () => {
+    if (!project?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('design_artifacts')
+        .select('*')
+        .eq('project_id', project.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setDesignArtifacts(data?.map(a => ({
+        id: a.id,
+        projectId: a.project_id,
+        type: a.type as any,
+        title: a.title,
+        content: a.content,
+        mermaidCode: a.mermaid_code,
+      })) || []);
+    } catch (error: any) {
+      toast({
+        title: 'Error loading artifacts',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const renderMermaid = async (code: string) => {
+    try {
+      const { svg } = await mermaid.render(`mermaid-${Date.now()}`, code);
+      setRenderedSvg(svg);
+    } catch (error) {
+      console.error('Mermaid render error:', error);
+      setRenderedSvg('');
+    }
+  };
 
   const generateDiagram = async (type: string) => {
     setIsGenerating(true);
     
-    // Simulate AI generation
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+      // Simulate AI generation delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
-    const mock = MOCK_DIAGRAMS[type];
-    if (mock) {
-      const artifact: DesignArtifact = {
-        id: crypto.randomUUID(),
-        type: type as any,
-        title: `${DIAGRAM_TYPES.find(d => d.id === type)?.label} Diagram`,
-        content: mock.explanation,
-        mermaidCode: mock.mermaid,
-      };
-      addDesignArtifact(artifact);
-      
-      const currentArtifacts = project?.designArtifacts.length || 0;
-      const progress = Math.min((currentArtifacts + 1) * 15, 100);
-      updatePhaseProgress('design', progress);
+      const mock = MOCK_DIAGRAMS[type];
+      if (mock) {
+        await addDesignArtifact({
+          type: type as any,
+          title: `${DIAGRAM_TYPES.find(d => d.id === type)?.label} Diagram`,
+          content: mock.explanation,
+          mermaidCode: mock.mermaid,
+        });
+        
+        const progress = Math.min((designArtifacts.length + 1) * 15, 100);
+        await updatePhaseProgress('design', progress);
+
+        toast({
+          title: 'Diagram generated',
+          description: `${DIAGRAM_TYPES.find(d => d.id === type)?.label} diagram has been created`,
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error generating diagram',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGenerating(false);
     }
-
-    setIsGenerating(false);
   };
 
-  const existingArtifacts = project?.designArtifacts || [];
+  const exportDiagram = () => {
+    if (!renderedSvg) return;
+    
+    const blob = new Blob([renderedSvg], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${selectedType}-diagram.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const selectedArtifact = designArtifacts.find(a => a.type === selectedType);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -159,9 +258,9 @@ export const DesignPhase: React.FC = () => {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline">
+          <Button variant="outline" onClick={exportDiagram} disabled={!renderedSvg}>
             <Download className="w-4 h-4 mr-2" />
-            Export All
+            Export SVG
           </Button>
         </div>
       </div>
@@ -171,7 +270,7 @@ export const DesignPhase: React.FC = () => {
         <h3 className="text-lg font-semibold mb-4">Generate Diagrams</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
           {DIAGRAM_TYPES.map((type) => {
-            const hasArtifact = existingArtifacts.some(a => a.type === type.id);
+            const hasArtifact = designArtifacts.some(a => a.type === type.id);
             const Icon = type.icon;
             
             return (
@@ -208,13 +307,29 @@ export const DesignPhase: React.FC = () => {
 
       {/* Diagram Viewer */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Mermaid Preview */}
+        {/* Visual Preview */}
         <Card className="glass-card">
           <CardHeader className="pb-3">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Palette className="w-5 h-5 text-primary" />
-              Diagram Preview
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Palette className="w-5 h-5 text-primary" />
+                Diagram Preview
+              </CardTitle>
+              {renderedSvg && (
+                <div className="flex items-center gap-2">
+                  <Button variant="ghost" size="icon" onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}>
+                    <ZoomOut className="w-4 h-4" />
+                  </Button>
+                  <span className="text-xs text-muted-foreground">{Math.round(zoom * 100)}%</span>
+                  <Button variant="ghost" size="icon" onClick={() => setZoom(z => Math.min(2, z + 0.1))}>
+                    <ZoomIn className="w-4 h-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => setZoom(1)}>
+                    <Maximize2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {isGenerating ? (
@@ -224,10 +339,17 @@ export const DesignPhase: React.FC = () => {
                   <p className="text-muted-foreground">Generating diagram...</p>
                 </div>
               </div>
-            ) : existingArtifacts.find(a => a.type === selectedType) ? (
+            ) : renderedSvg ? (
+              <div 
+                className="overflow-auto max-h-96 bg-secondary/30 rounded-lg p-4"
+                style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}
+              >
+                <div dangerouslySetInnerHTML={{ __html: renderedSvg }} />
+              </div>
+            ) : selectedArtifact?.mermaidCode ? (
               <div className="code-block">
                 <pre className="text-sm text-muted-foreground overflow-auto max-h-64">
-                  {existingArtifacts.find(a => a.type === selectedType)?.mermaidCode}
+                  {selectedArtifact.mermaidCode}
                 </pre>
               </div>
             ) : (
@@ -252,15 +374,15 @@ export const DesignPhase: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {existingArtifacts.find(a => a.type === selectedType) ? (
+            {selectedArtifact ? (
               <div className="space-y-4">
                 <p className="text-sm leading-relaxed">
-                  {existingArtifacts.find(a => a.type === selectedType)?.content}
+                  {selectedArtifact.content}
                 </p>
                 <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
                   <p className="text-xs text-primary font-medium mb-1">Pro Tip</p>
                   <p className="text-xs text-muted-foreground">
-                    This diagram can be edited in the Mermaid Live Editor and re-imported.
+                    Export as SVG for use in documentation or edit in the Mermaid Live Editor.
                   </p>
                 </div>
               </div>
@@ -276,11 +398,11 @@ export const DesignPhase: React.FC = () => {
       </div>
 
       {/* Generated Artifacts List */}
-      {existingArtifacts.length > 0 && (
+      {designArtifacts.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold mb-4">Generated Artifacts ({existingArtifacts.length})</h3>
+          <h3 className="text-lg font-semibold mb-4">Generated Artifacts ({designArtifacts.length})</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {existingArtifacts.map((artifact) => {
+            {designArtifacts.map((artifact) => {
               const typeConfig = DIAGRAM_TYPES.find(d => d.id === artifact.type);
               const Icon = typeConfig?.icon || FileCode;
               
@@ -314,7 +436,7 @@ export const DesignPhase: React.FC = () => {
       )}
 
       {/* Next Phase Button */}
-      {existingArtifacts.length >= 3 && (
+      {designArtifacts.length >= 3 && (
         <div className="flex justify-end pt-4">
           <Button 
             onClick={() => setActivePhase('development')}

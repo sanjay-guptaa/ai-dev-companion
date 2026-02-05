@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { useSDLCStore, Requirement, UseCase } from '@/store/sdlcStore';
+import React, { useState, useEffect } from 'react';
+import { useProjectStore, Requirement } from '@/store/projectStore';
+import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { 
   FileText, 
@@ -9,8 +10,7 @@ import {
   Clock,
   ChevronRight,
   Sparkles,
-  Download,
-  Filter
+  Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,94 +19,160 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 
 export const RequirementsPhase: React.FC = () => {
-  const { project, addRequirement, addUseCase, updatePhaseProgress, setActivePhase } = useSDLCStore();
+  const { project, requirements, setRequirements, addRequirement, updatePhaseProgress, setActivePhase } = useProjectStore();
+  const { toast } = useToast();
   const [isAddingRequirement, setIsAddingRequirement] = useState(false);
-  const [newRequirement, setNewRequirement] = useState<Partial<Requirement>>({
+  const [isLoading, setIsLoading] = useState(false);
+  const [newRequirement, setNewRequirement] = useState<Partial<Omit<Requirement, 'id' | 'projectId'>>>({
     type: 'functional',
     priority: 'medium',
     status: 'draft',
   });
 
-  const handleAddRequirement = () => {
+  // Load requirements on mount
+  useEffect(() => {
+    if (project?.id) {
+      loadRequirements();
+    }
+  }, [project?.id]);
+
+  const loadRequirements = async () => {
+    if (!project?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('requirements')
+        .select('*')
+        .eq('project_id', project.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setRequirements(data?.map(r => ({
+        id: r.id,
+        projectId: r.project_id,
+        type: r.type as any,
+        title: r.title,
+        description: r.description,
+        priority: r.priority as any,
+        status: r.status as any,
+      })) || []);
+    } catch (error: any) {
+      toast({
+        title: 'Error loading requirements',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleAddRequirement = async () => {
     if (!newRequirement.title || !newRequirement.description) return;
 
-    const requirement: Requirement = {
-      id: crypto.randomUUID(),
-      type: newRequirement.type || 'functional',
-      title: newRequirement.title,
-      description: newRequirement.description,
-      priority: newRequirement.priority || 'medium',
-      status: 'draft',
-    };
+    try {
+      await addRequirement({
+        type: newRequirement.type || 'functional',
+        title: newRequirement.title,
+        description: newRequirement.description,
+        priority: newRequirement.priority || 'medium',
+        status: 'draft',
+      });
 
-    addRequirement(requirement);
-    setNewRequirement({ type: 'functional', priority: 'medium', status: 'draft' });
-    setIsAddingRequirement(false);
+      setNewRequirement({ type: 'functional', priority: 'medium', status: 'draft' });
+      setIsAddingRequirement(false);
 
-    // Update progress
-    const currentReqs = project?.requirements.length || 0;
-    const progress = Math.min((currentReqs + 1) * 10, 100);
-    updatePhaseProgress('requirements', progress);
+      // Update progress
+      const progress = Math.min((requirements.length + 1) * 10, 100);
+      await updatePhaseProgress('requirements', progress);
+
+      toast({
+        title: 'Requirement added',
+        description: 'Your requirement has been saved',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error adding requirement',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
   const generateSRSFromAI = async () => {
-    // Simulated AI generation
-    const mockRequirements: Requirement[] = [
-      {
-        id: crypto.randomUUID(),
-        type: 'functional',
-        title: 'User Authentication',
-        description: 'Users must be able to register, login, and manage their accounts securely.',
-        priority: 'high',
-        status: 'draft',
-      },
-      {
-        id: crypto.randomUUID(),
-        type: 'functional',
-        title: 'Data Dashboard',
-        description: 'System shall provide a real-time dashboard displaying key metrics and analytics.',
-        priority: 'high',
-        status: 'draft',
-      },
-      {
-        id: crypto.randomUUID(),
-        type: 'non-functional',
-        title: 'Performance',
-        description: 'The system must respond to user actions within 200ms under normal load.',
-        priority: 'medium',
-        status: 'draft',
-      },
-      {
-        id: crypto.randomUUID(),
-        type: 'non-functional',
-        title: 'Scalability',
-        description: 'System must support up to 10,000 concurrent users without degradation.',
-        priority: 'medium',
-        status: 'draft',
-      },
-    ];
+    setIsLoading(true);
+    
+    try {
+      // Simulated AI generation - in a real implementation, this would call an AI service
+      const mockRequirements: Omit<Requirement, 'id' | 'projectId'>[] = [
+        {
+          type: 'functional',
+          title: 'User Authentication',
+          description: 'Users must be able to register, login, and manage their accounts securely.',
+          priority: 'high',
+          status: 'draft',
+        },
+        {
+          type: 'functional',
+          title: 'Data Dashboard',
+          description: 'System shall provide a real-time dashboard displaying key metrics and analytics.',
+          priority: 'high',
+          status: 'draft',
+        },
+        {
+          type: 'non-functional',
+          title: 'Performance',
+          description: 'The system must respond to user actions within 200ms under normal load.',
+          priority: 'medium',
+          status: 'draft',
+        },
+        {
+          type: 'non-functional',
+          title: 'Scalability',
+          description: 'System must support up to 10,000 concurrent users without degradation.',
+          priority: 'medium',
+          status: 'draft',
+        },
+      ];
 
-    mockRequirements.forEach(req => addRequirement(req));
-    updatePhaseProgress('requirements', 60);
+      for (const req of mockRequirements) {
+        await addRequirement(req);
+      }
+      
+      await updatePhaseProgress('requirements', 60);
+      
+      toast({
+        title: 'Requirements generated',
+        description: `${mockRequirements.length} requirements have been added`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error generating requirements',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const functionalReqs = project?.requirements.filter(r => r.type === 'functional') || [];
-  const nonFunctionalReqs = project?.requirements.filter(r => r.type === 'non-functional') || [];
+  const functionalReqs = requirements.filter(r => r.type === 'functional');
+  const nonFunctionalReqs = requirements.filter(r => r.type === 'non-functional');
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'bg-red-500/10 text-red-400 border-red-500/30';
-      case 'medium': return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30';
-      case 'low': return 'bg-green-500/10 text-green-400 border-green-500/30';
+      case 'high': return 'bg-destructive/10 text-destructive border-destructive/30';
+      case 'medium': return 'bg-warning/10 text-warning border-warning/30';
+      case 'low': return 'bg-success/10 text-success border-success/30';
       default: return 'bg-secondary text-muted-foreground';
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'approved': return <CheckCircle2 className="w-4 h-4 text-green-400" />;
+      case 'approved': return <CheckCircle2 className="w-4 h-4 text-success" />;
       case 'implemented': return <CheckCircle2 className="w-4 h-4 text-primary" />;
       default: return <Clock className="w-4 h-4 text-muted-foreground" />;
     }
@@ -123,9 +189,9 @@ export const RequirementsPhase: React.FC = () => {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={generateSRSFromAI}>
+          <Button variant="outline" onClick={generateSRSFromAI} disabled={isLoading}>
             <Sparkles className="w-4 h-4 mr-2" />
-            Generate from AI
+            {isLoading ? 'Generating...' : 'Generate from AI'}
           </Button>
           <Button variant="outline">
             <Download className="w-4 h-4 mr-2" />
@@ -141,14 +207,14 @@ export const RequirementsPhase: React.FC = () => {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4">
         {[
-          { label: 'Total Requirements', value: project?.requirements.length || 0, color: 'text-primary' },
-          { label: 'Functional', value: functionalReqs.length, color: 'text-blue-400' },
-          { label: 'Non-Functional', value: nonFunctionalReqs.length, color: 'text-purple-400' },
-          { label: 'Use Cases', value: project?.useCases.length || 0, color: 'text-green-400' },
+          { label: 'Total Requirements', value: requirements.length, color: 'text-primary' },
+          { label: 'Functional', value: functionalReqs.length, color: 'text-primary' },
+          { label: 'Non-Functional', value: nonFunctionalReqs.length, color: 'text-primary' },
+          { label: 'Approved', value: requirements.filter(r => r.status === 'approved').length, color: 'text-success' },
         ].map((stat, idx) => (
           <Card key={idx} className="glass-card">
             <CardContent className="pt-6">
-              <p className="text-3xl font-bold mb-1 tabular-nums">{stat.value}</p>
+              <p className={cn('text-3xl font-bold mb-1 tabular-nums', stat.color)}>{stat.value}</p>
               <p className="text-sm text-muted-foreground">{stat.label}</p>
             </CardContent>
           </Card>
@@ -234,9 +300,6 @@ export const RequirementsPhase: React.FC = () => {
           <TabsTrigger value="non-functional">
             Non-Functional ({nonFunctionalReqs.length})
           </TabsTrigger>
-          <TabsTrigger value="use-cases">
-            Use Cases ({project?.useCases.length || 0})
-          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="functional" className="space-y-3">
@@ -247,7 +310,7 @@ export const RequirementsPhase: React.FC = () => {
               <p className="text-muted-foreground mb-4">
                 Add requirements manually or let AI generate them from your project idea
               </p>
-              <Button onClick={generateSRSFromAI}>
+              <Button onClick={generateSRSFromAI} disabled={isLoading}>
                 <Sparkles className="w-4 h-4 mr-2" />
                 Generate Requirements
               </Button>
@@ -310,20 +373,10 @@ export const RequirementsPhase: React.FC = () => {
             ))
           )}
         </TabsContent>
-
-        <TabsContent value="use-cases" className="space-y-3">
-          <Card className="glass-card p-8 text-center">
-            <FileText className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-lg font-medium mb-2">Use Cases Coming Soon</p>
-            <p className="text-muted-foreground">
-              Use case modeling will be available in the Design phase
-            </p>
-          </Card>
-        </TabsContent>
       </Tabs>
 
       {/* Next Phase Button */}
-      {(project?.requirements.length || 0) >= 3 && (
+      {requirements.length >= 3 && (
         <div className="flex justify-end pt-4">
           <Button 
             onClick={() => setActivePhase('design')}
