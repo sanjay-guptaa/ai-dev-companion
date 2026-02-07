@@ -129,6 +129,18 @@ export const Dashboard: React.FC = () => {
       return;
     }
 
+    // Guard: Ensure user is authenticated before creating project
+    const { data: { user: authenticatedUser } } = await supabase.auth.getUser();
+    if (!authenticatedUser) {
+      toast({
+        title: 'Authentication required',
+        description: 'Please sign in to create a project',
+        variant: 'destructive',
+      });
+      navigate('/auth');
+      return;
+    }
+
     setIsCreating(true);
     try {
       const { data, error } = await supabase
@@ -136,7 +148,9 @@ export const Dashboard: React.FC = () => {
         .insert({
           name: newProjectName.trim(),
           description: newProjectDescription.trim(),
-          owner_id: user?.id,
+          owner_id: authenticatedUser.id,
+          current_phase: 'idea',
+          phase_progress: {},
         })
         .select()
         .single();
