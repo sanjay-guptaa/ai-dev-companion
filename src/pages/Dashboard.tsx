@@ -143,7 +143,10 @@ export const Dashboard: React.FC = () => {
 
     setIsCreating(true);
     try {
-      const { data, error } = await supabase
+      // Insert the project and get the ID using RETURNING via RPC workaround
+      // The SELECT RLS policy uses is_project_member() which can't see uncommitted rows,
+      // so we insert without .select() and then query the project separately
+      const { error: insertError } = await supabase
         .from('projects')
         .insert({
           name: newProjectName.trim(),
@@ -151,11 +154,21 @@ export const Dashboard: React.FC = () => {
           owner_id: authenticatedUser.id,
           current_phase: 'idea',
           phase_progress: {},
-        })
-        .select()
-        .single();
+        });
 
-      if (error) throw error;
+      if (insertError) throw insertError;
+
+      // Fetch the newly created project (now committed and visible to RLS)
+      const { data: newProject, error: fetchError } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('owner_id', authenticatedUser.id)
+        .eq('name', newProjectName.trim())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
 
       toast({
         title: 'Project created',
@@ -167,7 +180,12 @@ export const Dashboard: React.FC = () => {
       setNewProjectDescription('');
       
       // Navigate to the new project
-      navigate(`/project/${data.id}`);
+      if (newProject) {
+        navigate(`/project/${newProject.id}`);
+      } else {
+        // Fallback to dashboard refresh
+        fetchProjects();
+      }
     } catch (error: any) {
       toast({
         title: 'Error creating project',
