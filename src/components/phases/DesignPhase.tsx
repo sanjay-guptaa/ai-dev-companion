@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useProjectStore, DesignArtifact } from '@/store/projectStore';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import DOMPurify from 'dompurify';
 import { 
   Palette, 
   Download,
@@ -344,7 +345,7 @@ export const DesignPhase: React.FC = () => {
                 className="overflow-auto max-h-96 bg-secondary/30 rounded-lg p-4"
                 style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}
               >
-                <div dangerouslySetInnerHTML={{ __html: renderedSvg }} />
+                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderedSvg, { USE_PROFILES: { svg: true } }) }} />
               </div>
             ) : selectedArtifact?.mermaidCode ? (
               <div className="code-block">
