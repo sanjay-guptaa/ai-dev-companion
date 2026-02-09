@@ -411,6 +411,7 @@ export type Database = {
     }
     Functions: {
       can_edit_project: { Args: { project_id: string }; Returns: boolean }
+      generate_invite_token: { Args: { p_project_id: string }; Returns: string }
       is_project_member: { Args: { project_id: string }; Returns: boolean }
       is_project_owner: { Args: { project_id: string }; Returns: boolean }
     }

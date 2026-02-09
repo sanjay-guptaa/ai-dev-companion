@@ -445,6 +445,78 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
           }
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'use_cases', filter: `project_id=eq.${projectId}` },
+        async () => {
+          const { data } = await supabase
+            .from('use_cases')
+            .select('*')
+            .eq('project_id', projectId);
+          
+          if (data) {
+            set({
+              useCases: data.map(u => ({
+                id: u.id,
+                projectId: u.project_id,
+                title: u.title,
+                actor: u.actor,
+                description: u.description,
+                preconditions: u.preconditions,
+                steps: u.steps,
+                postconditions: u.postconditions,
+              })),
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'documents', filter: `project_id=eq.${projectId}` },
+        async () => {
+          const { data } = await supabase
+            .from('documents')
+            .select('*')
+            .eq('project_id', projectId);
+          
+          if (data) {
+            set({
+              documents: data.map(d => ({
+                id: d.id,
+                projectId: d.project_id,
+                type: d.type as any,
+                title: d.title,
+                content: d.content,
+              })),
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'test_cases', filter: `project_id=eq.${projectId}` },
+        async () => {
+          const { data } = await supabase
+            .from('test_cases')
+            .select('*')
+            .eq('project_id', projectId);
+          
+          if (data) {
+            set({
+              testCases: data.map(t => ({
+                id: t.id,
+                projectId: t.project_id,
+                type: t.type as any,
+                title: t.title,
+                description: t.description,
+                steps: t.steps,
+                expectedResult: t.expected_result,
+                status: t.status as any,
+              })),
+            });
+          }
+        }
+      )
       .subscribe();
 
     set({ realtimeChannel: channel });
