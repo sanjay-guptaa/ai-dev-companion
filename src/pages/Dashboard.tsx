@@ -14,7 +14,9 @@ import {
   Clock,
   Trash2,
   MoreVertical,
-  Loader2
+  Loader2,
+  Users,
+  Share2
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -33,6 +35,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
+import { JoinProjectDialog } from '@/components/collaboration/JoinProjectDialog';
+import { InviteTokenDialog } from '@/components/collaboration/InviteTokenDialog';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface Project {
@@ -43,6 +47,7 @@ interface Project {
   phase_progress: Record<string, number>;
   updated_at: string;
   created_at: string;
+  owner_id: string;
 }
 
 const PHASE_LABELS: Record<string, string> = {
@@ -64,6 +69,9 @@ export const Dashboard: React.FC = () => {
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [inviteProject, setInviteProject] = useState<{ id: string; name: string } | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -295,13 +303,22 @@ export const Dashboard: React.FC = () => {
               Manage and track your SDLC projects
             </p>
           </div>
-          <Button 
-            onClick={() => setShowNewProjectDialog(true)}
-            className="bg-gradient-primary text-primary-foreground"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            New Project
-          </Button>
+          <div className="flex gap-3">
+            <Button 
+              variant="outline"
+              onClick={() => setShowJoinDialog(true)}
+            >
+              <Users className="w-5 h-5 mr-2" />
+              Join Project
+            </Button>
+            <Button 
+              onClick={() => setShowNewProjectDialog(true)}
+              className="bg-gradient-primary text-primary-foreground"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              New Project
+            </Button>
+          </div>
         </div>
 
         {/* Search */}
@@ -359,16 +376,30 @@ export const Dashboard: React.FC = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem 
-                        className="text-destructive"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          handleDeleteProject(project.id);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
+                      {project.owner_id === user?.id && (
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setInviteProject({ id: project.id, name: project.name });
+                            setShowInviteDialog(true);
+                          }}
+                        >
+                          <Share2 className="w-4 h-4 mr-2" />
+                          Invite Members
+                        </DropdownMenuItem>
+                      )}
+                      {project.owner_id === user?.id && (
+                        <DropdownMenuItem 
+                          className="text-destructive"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            handleDeleteProject(project.id);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -454,6 +485,22 @@ export const Dashboard: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Join Project Dialog */}
+      <JoinProjectDialog open={showJoinDialog} onOpenChange={setShowJoinDialog} />
+
+      {/* Invite Token Dialog */}
+      {inviteProject && (
+        <InviteTokenDialog
+          open={showInviteDialog}
+          onOpenChange={(open) => {
+            setShowInviteDialog(open);
+            if (!open) setInviteProject(null);
+          }}
+          projectId={inviteProject.id}
+          projectName={inviteProject.name}
+        />
+      )}
     </div>
   );
 };
