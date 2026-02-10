@@ -23,7 +23,7 @@ const INITIAL_QUESTIONS = [
   "Any technical constraints or preferences?"
 ];
 
-export const ProjectIdeaForm: React.FC = () => {
+export const ProjectIdeaForm: React.FC<{ canEdit?: boolean }> = ({ canEdit = true }) => {
   const { project, updateProject, setActivePhase, updatePhaseProgress } = useProjectStore();
   const { toast } = useToast();
   

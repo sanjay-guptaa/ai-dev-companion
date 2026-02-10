@@ -100,7 +100,7 @@ export const projectService = {
 };
 `.trim();
 
-export const DevelopmentPhase: React.FC = () => {
+export const DevelopmentPhase: React.FC<{ canEdit?: boolean }> = ({ canEdit = true }) => {
   const { project, updatePhaseProgress, setActivePhase } = useProjectStore();
 
   const copyCode = (code: string) => {

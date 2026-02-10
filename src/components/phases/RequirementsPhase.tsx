@@ -21,7 +21,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 
-export const RequirementsPhase: React.FC = () => {
+export const RequirementsPhase: React.FC<{ canEdit?: boolean }> = ({ canEdit = true }) => {
   const { project, requirements, setRequirements, addRequirement, updatePhaseProgress, setActivePhase } = useProjectStore();
   const { toast } = useToast();
   const [isAddingRequirement, setIsAddingRequirement] = useState(false);
@@ -189,18 +189,28 @@ export const RequirementsPhase: React.FC = () => {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" onClick={generateSRSFromAI} disabled={isLoading}>
-            <Sparkles className="w-4 h-4 mr-2" />
-            {isLoading ? 'Generating...' : 'Generate from AI'}
-          </Button>
-          <Button variant="outline">
-            <Download className="w-4 h-4 mr-2" />
-            Export SRS
-          </Button>
-          <Button onClick={() => setIsAddingRequirement(true)} className="bg-gradient-primary text-primary-foreground">
-            <Plus className="w-4 h-4 mr-2" />
-            Add Requirement
-          </Button>
+          {canEdit && (
+            <>
+              <Button variant="outline" onClick={generateSRSFromAI} disabled={isLoading}>
+                <Sparkles className="w-4 h-4 mr-2" />
+                {isLoading ? 'Generating...' : 'Generate from AI'}
+              </Button>
+              <Button variant="outline">
+                <Download className="w-4 h-4 mr-2" />
+                Export SRS
+              </Button>
+              <Button onClick={() => setIsAddingRequirement(true)} className="bg-gradient-primary text-primary-foreground">
+                <Plus className="w-4 h-4 mr-2" />
+                Add Requirement
+              </Button>
+            </>
+          )}
+          {!canEdit && (
+            <Button variant="outline">
+              <Download className="w-4 h-4 mr-2" />
+              Export SRS
+            </Button>
+          )}
         </div>
       </div>
 

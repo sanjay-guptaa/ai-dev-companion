@@ -1,10 +1,12 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProjectStore } from '@/store/projectStore';
+import { useProjectRole } from '@/hooks/useProjectRole';
 import { getPhaseConfig } from '@/config/phases';
 import { cn } from '@/lib/utils';
-import { LogOut, Settings, User } from 'lucide-react';
+import { LogOut, Settings, User, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import {
   DropdownMenu,
@@ -16,6 +18,7 @@ import {
 export const Header: React.FC = () => {
   const { activePhase, sidebarOpen, project } = useProjectStore();
   const phaseConfig = getPhaseConfig(activePhase);
+  const { role } = useProjectRole(project?.id);
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -45,9 +48,17 @@ export const Header: React.FC = () => {
         {/* Actions */}
         <div className="flex items-center gap-3">
           {project && (
-            <span className="text-sm text-muted-foreground hidden md:block">
-              {project.name}
-            </span>
+            <div className="flex items-center gap-2 hidden md:flex">
+              <span className="text-sm text-muted-foreground">
+                {project.name}
+              </span>
+              {role && (
+                <Badge variant="outline" className="text-xs capitalize">
+                  <Shield className="w-3 h-3 mr-1" />
+                  {role}
+                </Badge>
+              )}
+            </div>
           )}
           
           <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">

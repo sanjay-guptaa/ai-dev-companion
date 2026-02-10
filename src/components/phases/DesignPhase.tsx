@@ -135,7 +135,7 @@ mermaid.initialize({
   },
 });
 
-export const DesignPhase: React.FC = () => {
+export const DesignPhase: React.FC<{ canEdit?: boolean }> = ({ canEdit = true }) => {
   const { project, designArtifacts, setDesignArtifacts, addDesignArtifact, updatePhaseProgress, setActivePhase } = useProjectStore();
   const { toast } = useToast();
   const [selectedType, setSelectedType] = useState<string>('use-case');
@@ -283,7 +283,7 @@ export const DesignPhase: React.FC = () => {
                     generateDiagram(type.id);
                   }
                 }}
-                disabled={isGenerating}
+                disabled={isGenerating || !canEdit}
                 className={cn(
                   'glass-card p-4 text-center transition-all hover:border-primary/50',
                   selectedType === type.id && 'border-primary',
