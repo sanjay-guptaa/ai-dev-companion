@@ -414,6 +414,10 @@ export type Database = {
       generate_invite_token: { Args: { p_project_id: string }; Returns: string }
       is_project_member: { Args: { project_id: string }; Returns: boolean }
       is_project_owner: { Args: { project_id: string }; Returns: boolean }
+      join_project_via_token: {
+        Args: { p_project_id: string; p_token: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "owner" | "contributor" | "viewer"
