@@ -4,7 +4,7 @@ import { useProjectStore } from '@/store/projectStore';
 import { useProjectRole } from '@/hooks/useProjectRole';
 import { getPhaseConfig } from '@/config/phases';
 import { cn } from '@/lib/utils';
-import { LogOut, Settings, User, Shield } from 'lucide-react';
+import { LogOut, Settings, User, Shield, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,6 +36,15 @@ export const Header: React.FC = () => {
       <div className="flex items-center justify-between h-full px-6">
         {/* Phase info */}
         <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => navigate('/dashboard')}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Dashboard
+          </Button>
           <div className={cn('phase-badge', `phase-${activePhase}`)}>
             <phaseConfig.icon className="w-3.5 h-3.5" />
             <span>{phaseConfig.label}</span>
