@@ -85,7 +85,7 @@ EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
 `.trim();
 
-export const DeploymentPhase: React.FC = () => {
+export const DeploymentPhase: React.FC<{ canEdit?: boolean }> = ({ canEdit = true }) => {
   const { project, updatePhaseProgress } = useProjectStore();
   const [selectedPlatform, setSelectedPlatform] = React.useState('vercel');
 

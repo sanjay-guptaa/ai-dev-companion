@@ -63,7 +63,7 @@ const createMockTestCases = (projectId: string): TestCase[] => [
   },
 ];
 
-export const TestingPhase: React.FC = () => {
+export const TestingPhase: React.FC<{ canEdit?: boolean }> = ({ canEdit = true }) => {
   const { project, testCases, setTestCases, addTestCase, updateTestCase, updatePhaseProgress, setActivePhase } = useProjectStore();
   const { toast } = useToast();
   const [isRunning, setIsRunning] = useState(false);
@@ -161,18 +161,22 @@ export const TestingPhase: React.FC = () => {
           </p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline">
-            <Sparkles className="w-4 h-4 mr-2" />
-            Generate Tests from Requirements
-          </Button>
-          <Button 
-            onClick={runTests}
-            disabled={isRunning}
-            className="bg-gradient-primary text-primary-foreground"
-          >
-            <Play className="w-4 h-4 mr-2" />
-            {isRunning ? 'Running...' : 'Run All Tests'}
-          </Button>
+          {canEdit && (
+            <>
+              <Button variant="outline">
+                <Sparkles className="w-4 h-4 mr-2" />
+                Generate Tests from Requirements
+              </Button>
+              <Button 
+                onClick={runTests}
+                disabled={isRunning}
+                className="bg-gradient-primary text-primary-foreground"
+              >
+                <Play className="w-4 h-4 mr-2" />
+                {isRunning ? 'Running...' : 'Run All Tests'}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 

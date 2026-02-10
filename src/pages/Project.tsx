@@ -11,6 +11,7 @@ import { TestingPhase } from '@/components/phases/TestingPhase';
 import { DocumentationPhase } from '@/components/phases/DocumentationPhase';
 import { DeploymentPhase } from '@/components/phases/DeploymentPhase';
 import { useProjectStore } from '@/store/projectStore';
+import { useProjectRole } from '@/hooks/useProjectRole';
 import { Loader2 } from 'lucide-react';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -28,6 +29,7 @@ export const Project: React.FC = () => {
     subscribeToRealtime,
     unsubscribeFromRealtime 
   } = useProjectStore();
+  const { canEdit, isOwner, role } = useProjectRole(projectId);
 
   // Auth check
   useEffect(() => {
@@ -116,21 +118,21 @@ export const Project: React.FC = () => {
   const renderPhase = () => {
     switch (activePhase) {
       case 'idea':
-        return <ProjectIdeaForm />;
+        return <ProjectIdeaForm canEdit={canEdit} />;
       case 'requirements':
-        return <RequirementsPhase />;
+        return <RequirementsPhase canEdit={canEdit} />;
       case 'design':
-        return <DesignPhase />;
+        return <DesignPhase canEdit={canEdit} />;
       case 'development':
-        return <DevelopmentPhase />;
+        return <DevelopmentPhase canEdit={canEdit} />;
       case 'testing':
-        return <TestingPhase />;
+        return <TestingPhase canEdit={canEdit} />;
       case 'documentation':
-        return <DocumentationPhase />;
+        return <DocumentationPhase canEdit={canEdit} />;
       case 'deployment':
-        return <DeploymentPhase />;
+        return <DeploymentPhase canEdit={canEdit} />;
       default:
-        return <ProjectIdeaForm />;
+        return <ProjectIdeaForm canEdit={canEdit} />;
     }
   };
 

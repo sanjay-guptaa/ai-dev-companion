@@ -67,7 +67,7 @@ The system will provide comprehensive SDLC management including requirements tra
 - Users are familiar with basic SDLC concepts
 `;
 
-export const DocumentationPhase: React.FC = () => {
+export const DocumentationPhase: React.FC<{ canEdit?: boolean }> = ({ canEdit = true }) => {
   const { project, updatePhaseProgress, setActivePhase } = useProjectStore();
   const [selectedDoc, setSelectedDoc] = useState('srs');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -94,10 +94,12 @@ export const DocumentationPhase: React.FC = () => {
             <Download className="w-4 h-4 mr-2" />
             Export All
           </Button>
-          <Button className="bg-gradient-primary text-primary-foreground">
-            <Sparkles className="w-4 h-4 mr-2" />
-            Regenerate All
-          </Button>
+          {canEdit && (
+            <Button className="bg-gradient-primary text-primary-foreground">
+              <Sparkles className="w-4 h-4 mr-2" />
+              Regenerate All
+            </Button>
+          )}
         </div>
       </div>
 
